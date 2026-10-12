@@ -729,7 +729,7 @@ function renderDetention(bounds) {
   const groupTable = (list, label) => grid([label,'Trains detained','Detention cases'],list.map(r=>({cells:[esc(r.key),num(r.trains),num(r.events)]})),{scroll:true});
   const page = Math.min(state.detPage || 0, Math.max(0,Math.ceil(rows.length/100)-1));
   const records = rows.slice(page*100,page*100+100);
-  el.innerHTML = '<p class="note">Counts are distinct train journeys (train plus journey date), not train numbers. One journey may occur in multiple sections or causes; do not add subgroup train counts. P is primary; N/S meanings remain unverified. Train category is unavailable until an ICMS category source is joined.</p>' +
+  el.innerHTML = '<p class="note">Each train start date is counted separately. A train can appear in several sections or reasons; do not add section-wise or reason-wise train counts. P is primary; N/S meanings remain unverified. Train category is unavailable until an ICMS category source is joined.</p>' +
     '<p class="note">Broad sections use draft route anchors, not a complete station master. Shared corridors and unmapped locations need review; yard cases have no inferred UP/DN.</p>'+
     `<div><label>Broad section <select id="detSection"><option value="">All sections</option>${[...new Set(all.map(broadDetentionSection))].sort().map(s=>'<option '+(state.detSection===s?'selected ':'')+'value="'+esc(s)+'">'+esc(s)+'</option>').join('')}</select></label> <label>Search train, location or reason <input id="detSearch" value="${esc(state.detSearch || '')}"></label> <button class="btn" id="applyDetSearch">Apply</button> <button class="btn" id="resetDet">Reset filters</button>${state.cause ? ' Reason: '+esc(state.cause) : ''}</div>` +
     '<div class="tiles">'+tile('Trains detained',num(model.trains),'Each train start date counted separately')+
@@ -737,7 +737,7 @@ function renderDetention(bounds) {
     tile('Detention reasons',num(model.causes.length))+tile('Detailed reasons',num(model.subs.length))+'</div>'+
     '<div class="g2"><fieldset><legend>Trains detained by reason — click to filter</legend>'+
     place(W=>barsH(W,model.causes.slice(0,12).map(r=>({label:r.key,value:r.trains,colour:ink('--seq-450'),
-      tip:esc(r.key)+'<br>'+esc(dictionaryDescription(rows,r.key))+'<br>'+num(r.trains)+' journeys · '+num(r.events)+' events'})),{unit:' journeys'}),260)+
+      tip:esc(r.key)+'<br>'+esc(dictionaryDescription(rows,r.key))+'<br>'+num(r.trains)+' trains · '+num(r.events)+' detention cases'})),{unit:' trains'}),260)+
     '</fieldset><fieldset><legend>Section-wise detention</legend>'+groupTable(model.sections,'Broad section')+'</fieldset></div>'+
     '<div class="g2"><fieldset><legend>ICMS detention classification</legend>'+groupTable(model.accounts,'ICMS classification')+
     '</fieldset><fieldset><legend>Train category-wise detention</legend>'+groupTable(model.trainTypes,'Train category')+'<p>Department/account attribution requires verified Report 67 integration; P/N/S is not a departmental account.</p></fieldset></div>'+
@@ -890,7 +890,7 @@ function renderCoverage(bounds) {
   $('v-coverage').innerHTML = `<div class="tiles">` +
     tile('Report 19 requested dates held', num(punctuality.dates.size) + ' / ' + num(expected), 'Latest reconciled single-day captures') +
     tile('Report 16 requested dates held', num(detention.dates.size) + ' / ' + num(expected), 'Union of reconciled request windows; not event-date completeness') +
-    tile('Explicit empty Report 16 captures', num(detention.rows.filter((r) => r.capture_state === 'reconciled_empty').length), 'Printed zero delayed train journeys in the selected source scope') +
+    tile('Explicit empty Report 16 captures', num(detention.rows.filter((r) => r.capture_state === 'reconciled_empty').length), 'Printed zero delayed trains in the selected source scope') +
     `</div><fieldset><legend>Source capture register</legend>` +
     `<p>Request windows and detention event dates differ. A reconciled capture does not certify a final or complete operating day. Empty means ICMS explicitly printed zero for this report scope.</p>` +
     (rows.length ? grid(['Report', 'Requested from', 'Requested to', 'Run', 'Imported (IST)', 'Printed total', 'Parsed total', 'Unit', 'Check'],
