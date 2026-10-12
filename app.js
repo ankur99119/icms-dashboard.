@@ -128,7 +128,7 @@ async function load() {
     state.present = (meta.sheets || []).map((s) => s.properties.title);
     const wanted = ['punctuality_daily_total', 'punctuality_daily', 'detention_daily_cause',
                     'detention_daily_section', 'detention_daily_subcause',
-                    'detention_daily_band', 'coverage', '_meta'].filter((t) => state.present.includes(t));
+                    'detention_daily_band', 'detention_events', 'coverage', '_meta'].filter((t) => state.present.includes(t));
     if (!wanted.length) {
       $('boot').textContent = 'The sheet has no data tabs yet. Run the export on the collecting machine.';
       return;
@@ -666,7 +666,66 @@ function dictionaryDescription(rows, cause, sub) {
   return values.size === 1 ? [...values][0] : 'Description unavailable';
 }
 
+function detentionCountModel(rows) {
+  const groups = (key) => {
+    const map = new Map();
+    rows.forEach(r => {
+      const label = key(r), item = map.get(label) || {key:label, events:0, journeys:new Set()};
+      item.events++; item.journeys.add(String(r.train)); map.set(label,item);
+    });
+    return [...map.values()].map(r => ({key:r.key,events:r.events,trains:r.journeys.size}))
+      .sort((a,b) => b.trains-a.trains || b.events-a.events || a.key.localeCompare(b.key));
+  };
+  return {trains:new Set(rows.map(r => String(r.train))).size, events:rows.length,
+    sections:groups(r => r.section || 'Unspecified'), causes:groups(r => r.cause || 'Unspecified'),
+    subs:groups(r => JSON.stringify([r.cause,r.sub_code || 'Unspecified'])),
+    accounts:groups(r => r.type || 'Unspecified'),
+    trainTypes:groups(r => r.train_type || 'Unavailable in shared source')};
+}
+
 function renderDetention(bounds) {
+  const el = $('v-detention');
+  const all = (state.tabs.detention_events || []).filter(r => r.detention_date >= bounds.start && r.detention_date <= bounds.end);
+  if (!all.length) {
+    el.innerHTML = '<div class="boot">Train-level detention records unavailable for this period. The shared event register covers a rolling window; check collection coverage. This is not a zero-detention result.</div>';
+    return;
+  }
+  const query = (state.detSearch || '').toLowerCase();
+  const rows = all.filter(r => (!state.cause || r.cause === state.cause) &&
+    (!query || [r.train,r.section,r.cause,r.sub_code,r.remarks].join(' ').toLowerCase().includes(query)));
+  const model = detentionCountModel(rows);
+  const groupTable = (list, label) => grid([label,'Train journeys','Detention events'],list.map(r=>({cells:[esc(r.key),num(r.trains),num(r.events)]})),{scroll:true});
+  const page = Math.min(state.detPage || 0, Math.max(0,Math.ceil(rows.length/100)-1));
+  const records = rows.slice(page*100,page*100+100);
+  el.innerHTML = '<p class="note">Counts are distinct train journeys (train plus journey date), not train numbers. One journey may occur in multiple sections or causes; do not add subgroup train counts. P is primary; N/S meanings remain unverified. Train category is unavailable until an ICMS category source is joined.</p>' +
+    `<div><label>Search train, section or reason <input id="detSearch" value="${esc(state.detSearch || '')}"></label> <button class="btn" id="applyDetSearch">Apply</button> <button class="btn" id="resetDet">Reset filters</button>${state.cause ? ' Reason: '+esc(state.cause) : ''}</div>` +
+    '<div class="tiles">'+tile('Train journeys detained',num(model.trains),'Distinct journeys in displayed records')+
+    tile('Detention events',num(model.events),'Separate source event rows')+tile('Sections affected',num(model.sections.length))+
+    tile('Reasons',num(model.causes.length))+tile('Reason/sub-reason pairs',num(model.subs.length))+'</div>'+
+    '<div class="g2"><fieldset><legend>Train journeys by reason — click to filter</legend>'+
+    place(W=>barsH(W,model.causes.slice(0,12).map(r=>({label:r.key,value:r.trains,colour:ink('--seq-450'),
+      tip:esc(r.key)+'<br>'+esc(dictionaryDescription(rows,r.key))+'<br>'+num(r.trains)+' journeys · '+num(r.events)+' events'})),{unit:' journeys'}),260)+
+    '</fieldset><fieldset><legend>Train journeys by section</legend>'+groupTable(model.sections,'Section')+'</fieldset></div>'+
+    '<div class="g2"><fieldset><legend>Source detention event types</legend>'+groupTable(model.accounts,'Source type')+
+    '</fieldset><fieldset><legend>Types of trains</legend>'+groupTable(model.trainTypes,'Train category')+'<p>Department/account attribution requires verified Report 67 integration; P/N/S is not a departmental account.</p></fieldset></div>'+
+    '<fieldset><legend>Reasons and sub-reasons</legend>'+grid(['Reason','Reason description','Sub-reason','Sub-reason description','Train journeys','Events'],model.subs.map(r=>{
+      const [cause,sub]=JSON.parse(r.key);return {cells:[esc(cause),esc(dictionaryDescription(rows,cause)),esc(sub),esc(dictionaryDescription(rows,cause,sub)),num(r.trains),num(r.events)]};
+    }),{scroll:true})+'</fieldset>'+
+    '<fieldset><legend>Train detention register</legend><p>Event-date window '+esc(bounds.start)+' to '+esc(bounds.end)+
+    ' · '+num(rows.length)+' records · page '+(page+1)+'</p>'+grid(['Train / journey','Detention date','Section','From','To','Account/type','Reason','Sub-reason','ICMS remarks'],records.map(r=>({cells:[r.train,r.detention_date,r.section,r.from_station,r.to_station,r.type,r.cause,r.sub_code,r.remarks].map(v=>esc(v || '—'))})),{scroll:true})+
+    `<button class="btn" id="detPrev" ${page===0?'disabled':''}>Previous</button> <button class="btn" id="detNext" ${(page+1)*100>=rows.length?'disabled':''}>Next</button></fieldset>`;
+  drawPlaced(); bindMarks(el);
+  el.querySelectorAll('path.mark[data-key]').forEach(mark=>mark.addEventListener('click',()=>{
+    const key=mark.getAttribute('data-key');if(!model.causes.some(r=>r.key===key))return;
+    state.cause=state.cause===key?null:key;state.detPage=0;render();
+  }));
+  $('applyDetSearch').addEventListener('click',()=>{state.detSearch=$('detSearch').value;state.detPage=0;render();});
+  $('resetDet').addEventListener('click',()=>{state.detSearch='';state.cause=null;state.detPage=0;render();});
+  $('detPrev').addEventListener('click',()=>{state.detPage=page-1;render();});
+  $('detNext').addEventListener('click',()=>{state.detPage=page+1;render();});
+}
+
+function renderDetentionDurationLegacy(bounds) {
   const el = $('v-detention');
   const causeRows = rowsIn('detention_daily_cause', bounds);
   if (!causeRows.length) {
