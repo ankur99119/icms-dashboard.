@@ -667,7 +667,8 @@ function dictionaryDescription(rows, cause, sub) {
 }
 
 // Conservative corridor anchors, not a complete division station census.
-// Shared anchors and same-station yards must not acquire an invented direction.
+// Junction/yard reporting uses the first corridor's membership; no direction
+// is inferred for a same-station record. This is a reporting policy, not routing.
 const DET_CORRIDORS = [
   {name:'NDLS–UMB', directed:true, stations:'NDLS SZM ANDI BHD NUR SNP GNU SMK DWNA PNP BBDE KUN BZK TRR NLKR AMIN KKDE DHKR DPP DHMZ SHDM MOY UMB'},
   {name:'NDLS–BTI', directed:true, stations:'NDLS DKZ DBSI SSB NNO ROK JIND NRW JHL BRZ BLZ MSZ BTI'},
@@ -680,21 +681,33 @@ const DET_CORRIDORS = [
   {name:'PNP–JCY', stations:'PNP BNJL NLH IRA DHRN MDLA GHNA BASN RKX ISRI BHMW LTKR PPDE JCY'},
   {name:'ROK–PNP', stations:'ROK MKLI JSS RKX GHNA MDLA DHRN IRA NLH BNJL PNP'},
   {name:'SNP–JIND', stations:'SNP BRNI MOHR LATH RBHR GHNA ISRI BHMW LTKR PPDE JIND'},
-  {name:'ROK–BNW', stations:'ROK SRBH MKMN KHRK KLNK MHUL BNW'}
+  {name:'ROK–LHLL', stations:'ROK DBHL LHLL'},
+  {name:'ROK–HNS', stations:'ROK SRBH MKMN KRKH BABH MAHM MLKN SRHT GRHI HNS'}
 ];
+
+function configuredDetentionSections() {
+  return DET_CORRIDORS.flatMap(c=>{
+    if(!c.directed)return [c.name+' Single line'];
+    const [a,b]=c.name.split('–');return [a+'–'+b+' UP',b+'–'+a+' DN',c.name+' Both directions'];
+  }).concat(['Remaining DLI network']);
+}
 
 function broadDetentionSection(row) {
   const from=String(row.from_station || '').trim(), to=String(row.to_station || '').trim();
-  if (!from || !to) return 'Section needs review';
-  if (from===to) return 'Station / yard detention';
+  if (!from || !to) return 'Remaining DLI network';
+  if (from===to) {
+    const c=DET_CORRIDORS.find(c=>c.stations.split(' ').includes(from));
+    return c ? c.name+(c.directed?' Both directions':' Single line') : 'Remaining DLI network';
+  }
   const matches=DET_CORRIDORS.flatMap(c=>{
     const stations=c.stations.split(' '), a=stations.indexOf(from), b=stations.indexOf(to);
     if(a<0 || b<0)return [];
-    if(!c.directed)return [c.name+' line'];
+    if(!c.directed)return [c.name+' Single line'];
     const [start,end]=c.name.split('–');
     return [a<b ? start+'–'+end+' UP' : end+'–'+start+' DN'];
   });
-  return matches.length===1 ? matches[0] : matches.length>1 ? 'Shared corridor — needs review' : 'Section needs review';
+  // A location shared by two specified corridors must not silently select one.
+  return matches.length===1 ? matches[0] : 'Remaining DLI network';
 }
 
 function detentionCountModel(rows) {
@@ -730,10 +743,10 @@ function renderDetention(bounds) {
   const page = Math.min(state.detPage || 0, Math.max(0,Math.ceil(rows.length/100)-1));
   const records = rows.slice(page*100,page*100+100);
   el.innerHTML = '<p class="note">Each train start date is counted separately. A train can appear in several sections or reasons; do not add section-wise or reason-wise train counts. P is primary; N/S meanings remain unverified. Train category is unavailable until an ICMS category source is joined.</p>' +
-    '<p class="note">Broad sections use draft route anchors, not a complete station master. Shared corridors and unmapped locations need review; yard cases have no inferred UP/DN.</p>'+
-    `<div><label>Broad section <select id="detSection"><option value="">All sections</option>${[...new Set(all.map(broadDetentionSection))].sort().map(s=>'<option '+(state.detSection===s?'selected ':'')+'value="'+esc(s)+'">'+esc(s)+'</option>').join('')}</select></label> <label>Search train, location or reason <input id="detSearch" value="${esc(state.detSearch || '')}"></label> <button class="btn" id="applyDetSearch">Apply</button> <button class="btn" id="resetDet">Reset filters</button>${state.cause ? ' Reason: '+esc(state.cause) : ''}</div>` +
+    '<p class="note">Same-station cases belong to their corridor, with both directions combined. Junction membership follows the first listed corridor. Remaining DLI network retains locations without one verified corridor match; full station allocation is not certified. LHLL/HNS are external boundary endpoints, not DLI stations.</p>'+
+    `<div><label>Broad section <select id="detSection"><option value="">All sections</option>${configuredDetentionSections().map(s=>'<option '+(state.detSection===s?'selected ':'')+'value="'+esc(s)+'">'+esc(s)+'</option>').join('')}</select></label> <label>Search train, location or reason <input id="detSearch" value="${esc(state.detSearch || '')}"></label> <button class="btn" id="applyDetSearch">Apply</button> <button class="btn" id="resetDet">Reset filters</button>${state.cause ? ' Reason: '+esc(state.cause) : ''}</div>` +
     '<div class="tiles">'+tile('Trains detained',num(model.trains),'Each train start date counted separately')+
-    tile('Detention cases',num(model.events),'One train can have several cases')+tile('Broad section groups',num(model.sections.length),'Includes yard / review groups')+
+    tile('Detention cases',num(model.events),'One train can have several cases')+tile('Broad section groups',num(model.sections.length),'Groups with recorded cases')+
     tile('Detention reasons',num(model.causes.length))+tile('Detailed reasons',num(model.subs.length))+'</div>'+
     '<div class="g2"><fieldset><legend>Trains detained by reason — click to filter</legend>'+
     place(W=>barsH(W,model.causes.slice(0,12).map(r=>({label:r.key,value:r.trains,colour:ink('--seq-450'),
