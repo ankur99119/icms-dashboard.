@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "publication_protocol": 2,
+  "operational_data_included": false,
+  "oauth_client_configured": false,
+  "assets": {
+    "index.html": "ff91f9efe3a45aa6396444b0fc84f8d2b09f0c93b704339bad60e211b31dfc0c",
+    "app.js": "257389cd5222be7bc8c1b7fee5a4f6f49508388fbdc29b9024d45ab9105aa780",
+    "styles.css": "d27b621db56ece376b4cd9a5db63c2aa6f87d63fd214fa1cb20c5de91652853e",
+    "config.js": "dadd11485bdea88b3688a5d29999a75d71d0b2419660c755a0bbb238f59634d2",
+    "periods.js": "61b9685f6af105058fcead3ce5d906e6c46eeeaae81fe5eb322ac3b8f4822366",
+    "README.md": "432f8d19365ed207f5de01f3531abc781ab0e5920f66ea4aeae5bef396747d4f"
+  }
+}

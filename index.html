@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ICMS — Delhi Division</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="ic-bar">
+  <span class="w">ICMS</span>
+  <span class="c">DELHI DIVISION COACHING INTELLIGENCE <small>Source-backed operational view</small></span>
+</div>
+
+<div class="ic-sub">
+  <span id="scope">—</span>
+  <span id="asOf">—</span>
+</div>
+
+<div class="ic-filter">
+  <span><b>Period</b>
+    <select id="period">
+      <option value="today">Today so far</option>
+      <option value="yesterday">Yesterday</option>
+      <option value="7d" selected>Last 7 days</option>
+      <option value="15d">Last 15 days</option>
+      <option value="month">Rolling month</option>
+      <option value="quarter">Rolling quarter</option>
+      <option value="6m">Rolling six months</option>
+      <option value="year">Rolling year</option>
+      <option value="custom">Date range</option>
+    </select>
+  </span>
+  <span id="customWrap" class="hide"><b>From</b> <input type="date" id="from">
+    <b>To</b> <input type="date" id="to"></span>
+  <label class="chk" title="Volume and reporting heuristic only; does not prove complete ICMS coverage."><input type="checkbox" id="completeOnly"> Coverage-check days only</label>
+  <span id="window"></span>
+  <span class="right">
+    <span id="who"></span>
+    <button class="btn" id="reload">Reload</button>
+    <button class="btn go" id="signin">Sign in with Google</button>
+    <button class="btn hide" id="signout">Sign out</button>
+  </span>
+</div>
+
+<div class="ic-tabs" id="tabs">
+  <button data-v="overview"  aria-selected="true">Overview</button>
+  <button data-v="punct"     aria-selected="false">Punctuality</button>
+  <button data-v="detention" aria-selected="false">Detention</button>
+  <button data-v="coverage" aria-selected="false">Collection register</button>
+</div>
+
+<main>
+  <p class="boot">Coverage checks flag unusual volumes or low reporting; they do not certify a complete day. Today’s results are provisional.</p>
+  <div id="msg" class="hide"></div>
+  <div id="boot" class="boot">Sign in to read the divisional sheet.</div>
+  <section id="v-overview"  class="hide"></section>
+  <section id="v-punct"     class="hide"></section>
+  <section id="v-detention" class="hide"></section>
+  <section id="v-coverage" class="hide"></section>
+</main>
+
+<div id="tip" class="tip hide"></div>
+
+<script src="config.js"></script>
+<script src="periods.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="app.js"></script>
+</body>
+</html>

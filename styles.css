@@ -1,0 +1,156 @@
+/* ICMS skin.
+   Chrome values measured from the live ICMS Reports module
+   (icms.indianrail.gov.in/reports) on 10 Oct 2026, read out of its computed
+   styles and its own report.css / navigator.css.
+
+   ICMS runs three type systems: Helvetica Neue 14 in the header chrome
+   (Bootstrap 3), Verdana ~11 in the navigation tree, Arial 11 in the report
+   body. This mirrors the report body, because that is what an officer is
+   reading when they switch across to this page.
+
+   Light only, declared explicitly rather than left to the browser: ICMS has
+   no dark mode, and a page that inverts itself stops matching it. */
+:root{
+  color-scheme: light;
+
+  --f:Arial,Helvetica,sans-serif;
+  --fn:Verdana,Geneva,sans-serif;
+  --s:11px;
+  --navy:#1F4179;           /* .labelBold - headings */
+  --rule:#C0C0C0;           /* .tableBorder800 verticals */
+  --rulerow:#B8B8B8;        /* .tableBorder800 horizontals */
+  --list:#F7F7F7;           /* div.nav-child-container */
+  --hover:#B80000;          /* every ICMS link hovers to this */
+  --row:19px;
+
+  --surface-1:#fff;
+  --text-primary:#000;
+  --text-secondary:#444;
+  --text-muted:#777;
+
+  /* Series colours are NOT ICMS's. ICMS has no charts, so there is no house
+     chart palette to copy, and its two inks (navy, red) cannot carry eight
+     distinguishable series. These are the validated default categorical
+     slots, in their validated order: worst adjacent CVD separation 9.1,
+     worst adjacent normal-vision separation 19.6. Three of them sit below
+     3:1 against white, so every chart on this page ships direct labels and
+     a table beside it. Assigned in fixed order, never cycled; an eighth
+     cause folds into Other. */
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --series-4:#eda100;
+  --series-5:#e87ba4; --series-6:#008300; --series-7:#6250d6; --series-8:#e34948;
+  --series-other:#9a9a93;
+
+  /* Single-hue ramp for magnitude. Ordinal use starts no lighter than step 250. */
+  --seq-250:#86b6ef; --seq-350:#5598e7; --seq-450:#2a78d6; --seq-550:#1c5cab; --seq-650:#104281;
+
+  --good:#0A6B3D; --warn:#8A5A00; --bad:#7A0000;
+  --grid:#E4E4E0;
+}
+
+*{box-sizing:border-box}
+body{margin:0;padding:0;background:var(--surface-1);color:var(--text-primary);
+  font:var(--s)/1.4 var(--f)}
+button,select,input{font:inherit}
+
+/* --- ICMS chrome --------------------------------------------------- */
+.ic-bar{background:var(--navy);color:#fff;padding:5px 12px;display:flex;align-items:center;
+  justify-content:space-between}
+.ic-bar .w{font:bold 15px var(--f);letter-spacing:.04em}
+.ic-bar .c{font:bold 13px var(--f);letter-spacing:.06em;color:#C9D6EC}
+.ic-bar .c small{font-size:9px;letter-spacing:0}
+.ic-sub{background:#E8E8E8;border-bottom:1px solid var(--rule);padding:3px 12px;
+  display:flex;justify-content:space-between;gap:12px;font-size:10px;color:#333;flex-wrap:wrap}
+.ic-filter{background:var(--list);border-bottom:1px solid var(--rule);padding:5px 12px;
+  display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.ic-filter b{color:var(--navy)}
+.ic-filter select,.ic-filter input[type=date]{border:1px solid var(--rule);height:19px;
+  padding:1px 3px;background:#fff}
+.ic-filter .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.chk{display:flex;gap:4px;align-items:center;color:var(--navy);font-weight:bold}
+.chk input{margin:0}
+.ic-tabs{padding:7px 12px 0;border-bottom:1px solid var(--rule);background:#fff}
+.ic-tabs button{font:11px var(--fn);padding:4px 11px;border:1px solid var(--rule);
+  border-bottom:0;background:var(--list);color:#000;cursor:pointer;margin-right:1px}
+.ic-tabs button[aria-selected="true"]{background:#fff;font-weight:bold;color:var(--navy)}
+main{padding:10px 12px 40px}
+
+/* --- grid: a faithful copy of .tableBorder800 ----------------------- */
+table.g{border-collapse:collapse;width:100%;border-top:1px solid var(--rule);
+  border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
+table.g tr{height:var(--row);text-align:center;border-left:1px solid var(--rule)}
+table.g th{font:bold var(--s) var(--f);background:#EDEFF5;border-bottom:1px solid var(--rulerow);
+  border-right:1px solid var(--rule);padding:0 5px;white-space:nowrap}
+table.g th.sortable{cursor:pointer;user-select:none}
+table.g th.sortable:hover{color:var(--hover)}
+table.g td{font:var(--s) var(--f);border-bottom:1px solid var(--rulerow);
+  border-right:1px solid var(--rule);padding:0 5px;white-space:nowrap}
+table.g .k{text-align:left}
+table.g tbody tr:hover{background:#F3F6FC}
+table.g tbody tr.sel{background:#DCDFEF}
+table.g tfoot td{font-weight:bold;background:#EDEFF5}
+/* Every grid scrolls sideways: these tables are 17 columns wide and the page
+   is opened on phones as well as desks. */
+.tw{overflow-x:auto}
+.scroll{max-height:430px;overflow:auto}
+.cw{width:100%}
+.scroll table.g th{position:sticky;top:0;z-index:1}
+
+fieldset{border:1px solid var(--rule);margin:0 0 9px;padding:7px 9px;min-width:0}
+legend{font:bold var(--s) var(--f);color:var(--navy);padding:0 4px}
+a{color:#00F}a:hover{color:var(--hover)}
+.hide{display:none!important}
+.btn{font:var(--s) var(--f);border:1px solid var(--rule);background:var(--list);
+  padding:2px 8px;cursor:pointer}
+.btn:hover{background:#F3F6FC}
+.btn.go{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:bold}
+.btn[disabled]{opacity:.5;cursor:default}
+.boot{padding:20px 0;color:var(--text-secondary)}
+#msg{border:1px solid #E0A8A8;background:#FBF0F0;color:var(--bad);padding:6px 9px;
+  margin-bottom:9px}
+
+/* --- tiles ---------------------------------------------------------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:9px;margin-bottom:9px}
+.tile{border:1px solid var(--rule);padding:6px 8px;background:#fff}
+.tile .lab{font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em}
+.tile .val{font:bold 21px var(--f);color:var(--navy);line-height:1.25}
+.tile .sub{font-size:10px;color:var(--text-muted)}
+.tile.flag .val{color:var(--warn)}
+
+/* --- charts --------------------------------------------------------- */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.g2a{display:grid;grid-template-columns:1.35fr 1fr;gap:9px}
+svg.chart{display:block;width:100%;height:auto;overflow:visible}
+svg.chart .grid{stroke:var(--grid);stroke-width:1}
+svg.chart .axis{stroke:var(--rulerow);stroke-width:1}
+svg.chart text{font:10px var(--f);fill:var(--text-secondary)}
+svg.chart text.val{fill:var(--text-primary)}
+svg.chart text.ttl{font-weight:bold;fill:var(--navy)}
+svg.chart .mark{cursor:pointer}
+svg.chart .mark:hover{stroke:var(--text-primary);stroke-width:1.5}
+/* 2px surface gap between stacked segments and adjacent bars */
+svg.chart .seg{stroke:var(--surface-1);stroke-width:2}
+svg.chart .line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg.chart .dot{stroke:var(--surface-1);stroke-width:2}
+svg.chart .dash{stroke-dasharray:3 3}
+svg.chart .cross{stroke:var(--text-muted);stroke-width:1;stroke-dasharray:2 2}
+
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin:5px 0 0;font-size:10px;
+  color:var(--text-secondary)}
+.legend span{display:flex;gap:4px;align-items:center;cursor:pointer}
+.legend i{width:9px;height:9px;display:block;border-radius:2px}
+.legend span.off{opacity:.35}
+
+.tip{position:fixed;z-index:50;pointer-events:none;background:#fff;
+  border:1px solid var(--navy);padding:4px 7px;font:10px var(--f);
+  box-shadow:0 2px 6px rgba(0,0,0,.18);max-width:260px}
+.tip b{color:var(--navy)}
+.tip table{border-collapse:collapse;margin-top:2px}
+.tip td{padding:0 6px 0 0;white-space:nowrap}
+
+.pill{display:inline-block;border:1px solid var(--rule);background:var(--list);
+  padding:0 5px;margin-left:5px;font-size:10px;color:var(--text-secondary)}
+.pill.flag{border-color:#E0C98A;background:#FFF8E8;color:var(--warn)}
+.no{color:var(--warn)}
+.bar-in{height:9px;background:var(--seq-250);display:inline-block;vertical-align:middle}
+
+@media(max-width:1000px){.g2,.g2a{grid-template-columns:1fr}}
