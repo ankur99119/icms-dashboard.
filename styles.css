@@ -51,6 +51,10 @@
 body{margin:0;padding:0;background:var(--surface-1);color:var(--text-primary);
   font:var(--s)/1.4 var(--f)}
 button,select,input{font:inherit}
+.det-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.det-filters label{display:flex;gap:4px;align-items:center}
+#detTrain{width:90px}
+#detFilterError{color:var(--bad);margin:4px 0}
 
 /* --- ICMS chrome --------------------------------------------------- */
 .ic-bar{background:var(--navy);color:#fff;padding:5px 12px;display:flex;align-items:center;

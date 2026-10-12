@@ -666,48 +666,93 @@ function dictionaryDescription(rows, cause, sub) {
   return values.size === 1 ? [...values][0] : 'Description unavailable';
 }
 
-// Conservative corridor anchors, not a complete division station census.
-// Junction/yard reporting uses the first corridor's membership; no direction
-// is inferred for a same-station record. This is a reporting policy, not routing.
+// Map-based reporting corridors. Junction home sections and shared approach
+// ownership are explicit policy; they do not assert an individual train's route.
 const DET_CORRIDORS = [
-  {name:'NDLS–UMB', directed:true, stations:'NDLS SZM ANDI BHD NUR SNP GNU SMK DWNA PNP BBDE KUN BZK TRR NLKR AMIN KKDE DHKR DPP DHMZ SHDM MOY UMB'},
-  {name:'NDLS–BTI', directed:true, stations:'NDLS DKZ DBSI SSB NNO ROK JIND NRW JHL BRZ BLZ MSZ BTI'},
-  {name:'DLI–TPZ', directed:true, stations:'DLI DSA SBB GZB GZN GUH MDNR MUD PRTP MTC PQY MUT KAT MUZ DBD TPZ'},
-  {name:'NDLS–RE', directed:true, stations:'NDLS DKZ DEE PTNR DEC GHH JSKA PTRD KIP RE'},
-  {name:'NDLS–PWL', directed:true, stations:'NDLS TKJ LPNR NZM OKA TKD TKDC FDB FDN BVH AST PWL'},
-  {name:'NRW–KKDE', stations:'NRW TNDE GXG PHWR PBJM TIK KLE QTP SJM KKDE'},
-  {name:'DSA–TPZ', stations:'DSA NOLI GTRA FAP SFA KEX AHQ SUJR BADK BTU BAOL BDHP ASAR KQL KAND GLBN SMQL HIND HHP THBN UPRD TBTN NNX RPMN MNZ TPZ'},
-  {name:'ABO–RE', stations:'ABO DBHL DGHL JHJ MHRI PLHW RE'},
-  {name:'PNP–JCY', stations:'PNP BNJL NLH IRA DHRN MDLA GHNA BASN RKX ISRI BHMW LTKR PPDE JCY'},
+  {name:'CYZ–DLI', directionalOnly:true, stations:'CYZ GZB SBB DSAP DSA DLI'},
+  {name:'NDLS–CYZ', directionalOnly:true, stations:'NDLS TKJ ANVR DSBP SBB GZB CYZ'},
+  {name:'NDLS–UMB', directed:true, stations:'NDLS SZM DAZ ANDI BHD KHKN HUK NUR RDDE HNN SNP SLKN RUG GNU BDMJ SMK DWNA PNP BBDE KFU GRA BZJT KUN BZK TRR NLKR AMIN KKDE DHKR DPP DHZM SHDM MOY UMB'},
+  {name:'NDLS–BTI', directed:true, stations:'NDLS DKZ DBSI SSB MGLP NNO MQC GHE BGZ ASE ROHN SPZ ISM KRZ ABO ROK SMF KHV KZH JNA JJT KIU BSPH JIND BZO GNBA UCA GSO NRW DHY DTN GRZ KLY KLWN TUN HMQ JHL KAGR BRZ DTW BLZ NPX MSZ SSZ KTKL MAUR MASK KTF KZW BTI'},
+  {name:'DLI–TPZ', directed:true, stations:'DLI DSA VVB SBB GZB GZN DXH GUH MUD MDNR MUZ PRTP MTC MUT PQY DRLA SKF KAT MSP MOZ RNA DBD THJ NGL TPZ SRE'},
+  {name:'NDLS–RE', directed:true, stations:'NDLS DKZ DEE PTNR KRTN NRVR DEC PM SMDP BWSN GGN BDXT GHH PT TNJR JSKA PTRD IHP KIP KWMD RE'},
+  {name:'NDLS–PWL', directed:true, stations:'NDLS CSB TKJ PGMD NZM LPNR OKA TKD TKDC FDB FDN BVH PYLA AST PWL'},
+  {name:'NRW–KKDE', stations:'NRW KIY SJM QTP KLE NKLE GXG TIK PHWR PBJM PDS TNDE KKDE'},
+  {name:'DSA–TPZ', stations:'DSA GPSL BHHZ NOLI NTG GTRA FAP KEX SFA AHQ BPM SUJR AIH BADK BTU BAOL KPKI BDHP ASAR AILM KQL KZI GLBN SMQL SLWR HIND HHP THBN UPRD TBTN NNX SNAP RPMN BNQL JHHD MNZ TPZ SRE'},
+  {name:'ROK–RE', stations:'ROK ABO DGHL JHJ MHRI PLWS GKL RE'},
+  {name:'PNP–JCY', stations:'PNP KURN ASDE NARA MLDE KSDE SFDE SXE BKDE PKDE SWDE SPBK PPDE JCY'},
   {name:'ROK–PNP', stations:'ROK MKLI JSS RKX GHNA MDLA DHRN IRA NLH BNJL PNP'},
   {name:'SNP–JIND', stations:'SNP BRNI MOHR LATH RBHR GHNA ISRI BHMW LTKR PPDE JIND'},
   {name:'ROK–LHLL', stations:'ROK DBHL LHLL'},
-  {name:'ROK–HNS', stations:'ROK SRBH MKMN KRKH BABH MAHM MLKN SRHT GRHI HNS'}
+  {name:'ROK–HNS', stations:'ROK SRBH MKMN KRKH BABH MAHM MLKN SRHT GRHI HNS'},
+  {name:'GHH–FN', stations:'GHH STKW FN'},
+  {name:'Delhi Ring and Central Connections', area:true, stations:'DLI DSB DKZ NDLS SZM DEE PTNR DBSI SSB DLPI BRSQ SDPR CNKP DSJ SOJ LDCY SWNR LPNR NZM'}
 ];
 
+const DET_STATION_HOME = {
+  NDLS:'Delhi Ring and Central Connections',DLI:'Delhi Ring and Central Connections',
+  DSB:'Delhi Ring and Central Connections',DKZ:'Delhi Ring and Central Connections',
+  DEE:'NDLS–RE',PTNR:'NDLS–RE',DBSI:'NDLS–BTI',SSB:'NDLS–BTI',SZM:'NDLS–UMB',
+  ANVR:'NDLS–CYZ',NZM:'NDLS–PWL',LPNR:'NDLS–PWL',TKJ:'NDLS–CYZ',
+  SBB:'DLI–TPZ',GZB:'DLI–TPZ',TPZ:'DLI–TPZ',SRE:'DLI–TPZ',
+  PNP:'NDLS–UMB',SNP:'NDLS–UMB',KKDE:'NDLS–UMB',
+  ROK:'NDLS–BTI',ABO:'NDLS–BTI',JIND:'NDLS–BTI',NRW:'NDLS–BTI',
+  GHNA:'ROK–PNP',PPDE:'PNP–JCY',GHH:'NDLS–RE',RE:'NDLS–RE'
+};
+function detentionCorridorLabel(c,from,to) {
+  if(c.area)return c.name;
+  if(from===to)return c.name+(c.directed || c.directionalOnly?' Both directions':' Single line');
+  if(!c.directed && !c.directionalOnly)return c.name+' Single line';
+  const [start,end]=c.name.split('–'),stations=c.stations.split(' ');
+  const forward=stations.indexOf(from)<stations.indexOf(to);
+  if(c.directionalOnly)return forward?start+'–'+end:end+'–'+start;
+  return forward?start+'–'+end+' UP':end+'–'+start+' DN';
+}
+
+const DET_LATE_START_STATIONS = ['NDLS','DLI','ANVT/ANVR','DEE','HNZM'];
+function detentionStationCode(value) {
+  const code=String(value || '').trim().toUpperCase();
+  return code==='ANVT' ? 'ANVR' : (code==='HNZM' ? 'NZM' : code);
+}
+function lateStartStation(row) {
+  const from=detentionStationCode(row.from_station), to=detentionStationCode(row.to_station);
+  // A late-start remark carried into a running section is not a local late start.
+  if(!from || from!==to || !/(?:\bL\s*\/\s*S\b|\bLATE[ -]+START\b)/i.test(String(row.remarks || '')))return '';
+  return ({NDLS:'NDLS',DLI:'DLI',ANVR:'ANVT/ANVR',DEE:'DEE',NZM:'HNZM'})[from] || '';
+}
 function configuredDetentionSections() {
   return DET_CORRIDORS.flatMap(c=>{
+    if(c.area)return [c.name];
+    if(c.directionalOnly){const [a,b]=c.name.split('–');return [a+'–'+b,b+'–'+a,c.name+' Both directions'];}
     if(!c.directed)return [c.name+' Single line'];
     const [a,b]=c.name.split('–');return [a+'–'+b+' UP',b+'–'+a+' DN',c.name+' Both directions'];
-  }).concat(['Remaining DLI network']);
+  }).concat(DET_LATE_START_STATIONS.map(s=>s+' Late start'),['Remaining DLI network']);
 }
 
 function broadDetentionSection(row) {
-  const from=String(row.from_station || '').trim(), to=String(row.to_station || '').trim();
+  const station=lateStartStation(row);
+  if(station)return station+' Late start';
+  const from=detentionStationCode(row.from_station), to=detentionStationCode(row.to_station);
   if (!from || !to) return 'Remaining DLI network';
   if (from===to) {
-    const c=DET_CORRIDORS.find(c=>c.stations.split(' ').includes(from));
-    return c ? c.name+(c.directed?' Both directions':' Single line') : 'Remaining DLI network';
+    const home=DET_STATION_HOME[from];
+    const c=home?DET_CORRIDORS.find(c=>c.name===home):DET_CORRIDORS.find(c=>c.stations.split(' ').includes(from));
+    return c ? detentionCorridorLabel(c,from,to) : 'Remaining DLI network';
   }
-  const matches=DET_CORRIDORS.flatMap(c=>{
-    const stations=c.stations.split(' '), a=stations.indexOf(from), b=stations.indexOf(to);
-    if(a<0 || b<0)return [];
-    if(!c.directed)return [c.name+' Single line'];
-    const [start,end]=c.name.split('–');
-    return [a<b ? start+'–'+end+' UP' : end+'–'+start+' DN'];
-  });
-  // A location shared by two specified corridors must not silently select one.
-  return matches.length===1 ? matches[0] : 'Remaining DLI network';
+  const matches=DET_CORRIDORS.filter(c=>c.stations.split(' ').includes(from) && c.stations.split(' ').includes(to));
+  // Explicit user-approved ownership for the previously reviewed source spans.
+  if([from,to].every(s=>['ANDI','DBSI'].includes(s)))return 'Delhi Ring and Central Connections';
+  if((from==='ANVR' && to==='SRE') || (from==='SRE' && to==='ANVR')) {
+    return from==='ANVR'?'DLI–TPZ UP':'TPZ–DLI DN';
+  }
+  // Keep the existing NDLS connector's shared GZB–SBB segment ownership.
+  // DLI/DSA/DSAP pairs on the new connector use CYZ–DLI / DLI–CYZ.
+  const central=matches.find(c=>c.area),connector=matches.find(c=>c.name==='NDLS–CYZ');
+  const dliConnector=matches.find(c=>c.name==='CYZ–DLI');
+  let chosen=central || connector || dliConnector || (matches.length===1?matches[0]:null);
+  // ROK–ABO is the common approach to the Rewari branch. Main-line ownership
+  // keeps this one physical segment in NDLS–BTI without duplicating events.
+  if(!chosen && [from,to].every(s=>['ROK','ABO'].includes(s)))chosen=matches.find(c=>c.name==='NDLS–BTI');
+  return chosen?detentionCorridorLabel(chosen,from,to):'Remaining DLI network';
 }
 
 function detentionCountModel(rows) {
@@ -727,6 +772,26 @@ function detentionCountModel(rows) {
     trainTypes:groups(r => r.train_type || 'Unavailable in shared source')};
 }
 
+function detentionTrainNumber(row) {
+  const match=String(row.train || '').match(/^\s*(\d{1,5})(?=\s|$)/);
+  return match?match[1].padStart(5,'0'):'';
+}
+function detentionSearchRows(source,bounds,filters={}) {
+  const start=filters.start || bounds.start,end=filters.end || bounds.end;
+  const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0,10)===s;
+  if(!validDate(start) || !validDate(end) || start>end)return {rows:[],error:'Choose a valid date range. From date must not be after To date.'};
+  const input=String(filters.train || '').trim();
+  if(input && !/^\d{1,5}$/.test(input))return {rows:[],error:'Enter a train number using up to five digits.'};
+  const number=input?input.padStart(5,'0'):'',query=String(filters.query || '').toLowerCase();
+  return {error:'',rows:source.filter(r=>r.detention_date>=bounds.start && r.detention_date<=bounds.end && r.detention_date>=start && r.detention_date<=end &&
+    (!number || detentionTrainNumber(r)===number) &&
+    (!filters.station || lateStartStation(r)===filters.station) && (!filters.cause || r.cause===filters.cause) &&
+    (!filters.section || broadDetentionSection(r)===filters.section) &&
+    (!query || [r.train,r.section,broadDetentionSection(r),r.cause,r.sub_code,r.remarks].join(' ').toLowerCase().includes(query)))};
+}
+function detentionSectionLabel(value) {
+  return value==='Remaining DLI network'?'ICMS route-wide / other locations':value;
+}
 function renderDetention(bounds) {
   const el = $('v-detention');
   const all = (state.tabs.detention_events || []).filter(r => r.detention_date >= bounds.start && r.detention_date <= bounds.end);
@@ -734,17 +799,19 @@ function renderDetention(bounds) {
     el.innerHTML = '<div class="boot">Train-level detention records unavailable for this period. The shared event register covers a rolling window; check collection coverage. This is not a zero-detention result.</div>';
     return;
   }
-  const query = (state.detSearch || '').toLowerCase();
-  const rows = all.filter(r => (!state.cause || r.cause === state.cause) &&
-    (!state.detSection || broadDetentionSection(r)===state.detSection) &&
-    (!query || [r.train,r.section,broadDetentionSection(r),r.cause,r.sub_code,r.remarks].join(' ').toLowerCase().includes(query)));
+  const result=detentionSearchRows(all,bounds,{train:state.detTrain,start:state.detFrom,end:state.detTo,station:state.detStation,cause:state.cause,section:state.detSection,query:state.detSearch});
+  const rows=result.rows;
+  const trainChoices=[...new Set((state.tabs.detention_events || []).map(detentionTrainNumber).filter(Boolean))].sort();
   const model = detentionCountModel(rows);
-  const groupTable = (list, label) => grid([label,'Trains detained','Detention cases'],list.map(r=>({cells:[esc(r.key),num(r.trains),num(r.events)]})),{scroll:true});
+  const groupTable = (list, label) => grid([label,'Trains detained','Detention cases'],list.map(r=>({cells:[esc(label==='Broad section'?detentionSectionLabel(r.key):r.key),num(r.trains),num(r.events)]})),{scroll:true});
   const page = Math.min(state.detPage || 0, Math.max(0,Math.ceil(rows.length/100)-1));
   const records = rows.slice(page*100,page*100+100);
   el.innerHTML = '<p class="note">Each train start date is counted separately. A train can appear in several sections or reasons; do not add section-wise or reason-wise train counts. P is primary; N/S meanings remain unverified. Train category is unavailable until an ICMS category source is joined.</p>' +
-    '<p class="note">Same-station cases belong to their corridor, with both directions combined. Junction membership follows the first listed corridor. Remaining DLI network retains locations without one verified corridor match; full station allocation is not certified. LHLL/HNS are external boundary endpoints, not DLI stations.</p>'+
-    `<div><label>Broad section <select id="detSection"><option value="">All sections</option>${configuredDetentionSections().map(s=>'<option '+(state.detSection===s?'selected ':'')+'value="'+esc(s)+'">'+esc(s)+'</option>').join('')}</select></label> <label>Search train, location or reason <input id="detSearch" value="${esc(state.detSearch || '')}"></label> <button class="btn" id="applyDetSearch">Apply</button> <button class="btn" id="resetDet">Reset filters</button>${state.cause ? ' Reason: '+esc(state.cause) : ''}</div>` +
+    '<p class="note">Station late starts and broad sections use the agreed mapping. ICMS route-wide / other locations retain their original source location without guessed section splits. Each case is counted once.</p>'+
+    '<div class="tabs" role="tablist" aria-label="Late-start stations"><button class="btn" role="tab" data-det-station="" aria-selected="'+(!state.detStation)+'">All detentions</button>'+DET_LATE_START_STATIONS.map(s=>'<button class="btn" role="tab" data-det-station="'+esc(s)+'" aria-selected="'+(state.detStation===s)+'">'+esc(s)+' — Late start</button>').join('')+'</div>'+
+    `<div class="det-filters"><label>Train number <input id="detTrain" inputmode="numeric" maxlength="5" list="detTrainChoices" placeholder="All trains" value="${esc(state.detTrain || '')}"></label><datalist id="detTrainChoices">${trainChoices.map(n=>'<option value="'+esc(n)+'"></option>').join('')}</datalist> <label>Detention from <input type="date" id="detFrom" min="${esc(bounds.start)}" max="${esc(bounds.end)}" value="${esc(state.detFrom || bounds.start)}"></label> <label>To <input type="date" id="detTo" min="${esc(bounds.start)}" max="${esc(bounds.end)}" value="${esc(state.detTo || bounds.end)}"></label> <label>Broad section <select id="detSection"><option value="">All sections</option>${configuredDetentionSections().map(s=>'<option '+(state.detSection===s?'selected ':'')+'value="'+esc(s)+'">'+esc(detentionSectionLabel(s))+'</option>').join('')}</select></label> <label>Location or reason <input id="detSearch" value="${esc(state.detSearch || '')}"></label> <button class="btn" id="applyDetSearch">Search</button> <button class="btn" id="resetDet">Reset filters</button>${state.cause ? ' Reason: '+esc(state.cause) : ''}</div>` +
+    '<p class="note">Dates refer to detention date, within the period selected above. Train-number suggestions include all trains in the loaded ICMS register.</p><p id="detFilterError" role="alert">'+esc(result.error)+'</p>'+
+    (!result.error && !rows.length?'<p>No captured cases match these filters. This does not establish that the train had no detention.</p>':'')+
     '<div class="tiles">'+tile('Trains detained',num(model.trains),'Each train start date counted separately')+
     tile('Detention cases',num(model.events),'One train can have several cases')+tile('Broad section groups',num(model.sections.length),'Groups with recorded cases')+
     tile('Detention reasons',num(model.causes.length))+tile('Detailed reasons',num(model.subs.length))+'</div>'+
@@ -757,17 +824,20 @@ function renderDetention(bounds) {
     '<fieldset><legend>Reason-wise detention details</legend>'+grid(['Reason','Reason description','Sub-reason','Sub-reason description','Trains detained','Cases'],model.subs.map(r=>{
       const [cause,sub]=JSON.parse(r.key);return {cells:[esc(cause),esc(dictionaryDescription(rows,cause)),esc(sub),esc(dictionaryDescription(rows,cause,sub)),num(r.trains),num(r.events)]};
     }),{scroll:true})+'</fieldset>'+
-    '<fieldset><legend>Train-wise detention details</legend><p>Date of detention '+esc(bounds.start)+' to '+esc(bounds.end)+
-    ' · '+num(rows.length)+' cases · page '+(page+1)+'</p>'+grid(['Train number & start date','Date of detention','Broad section','ICMS original location','From','To','ICMS classification','Reason','Sub-reason','Reported explanation'],records.map(r=>({cells:[r.train,r.detention_date,broadDetentionSection(r),r.section,r.from_station,r.to_station,r.type,r.cause,r.sub_code,r.remarks].map(v=>esc(v || '—'))})),{scroll:true})+
+    '<fieldset><legend>Train-wise detention details</legend><p>Date of detention '+esc(state.detFrom || bounds.start)+' to '+esc(state.detTo || bounds.end)+
+    ' · '+num(rows.length)+' cases · page '+(page+1)+'</p>'+grid(['Train number & start date','Date of detention','Broad section','ICMS original location','From','To','ICMS classification','Account / reason code','Account / reason description','Sub-reason','Sub-reason description','Reported explanation'],records.map(r=>({cells:[r.train,r.detention_date,detentionSectionLabel(broadDetentionSection(r)),r.section,r.from_station,r.to_station,r.type,r.cause,dictionaryDescription(rows,r.cause),r.sub_code,dictionaryDescription(rows,r.cause,r.sub_code),r.remarks].map(v=>esc(v || '—'))})),{scroll:true})+
     `<button class="btn" id="detPrev" ${page===0?'disabled':''}>Previous</button> <button class="btn" id="detNext" ${(page+1)*100>=rows.length?'disabled':''}>Next</button></fieldset>`;
   drawPlaced(); bindMarks(el);
   el.querySelectorAll('path.mark[data-key]').forEach(mark=>mark.addEventListener('click',()=>{
     const key=mark.getAttribute('data-key');if(!model.causes.some(r=>r.key===key))return;
     state.cause=state.cause===key?null:key;state.detPage=0;render();
   }));
-  $('applyDetSearch').addEventListener('click',()=>{state.detSearch=$('detSearch').value;state.detPage=0;render();});
-  $('detSection').addEventListener('change',()=>{state.detSection=$('detSection').value;state.detPage=0;render();});
-  $('resetDet').addEventListener('click',()=>{state.detSearch='';state.detSection='';state.cause=null;state.detPage=0;render();});
+  const applySearch=()=>{state.detTrain=$('detTrain').value.trim();state.detFrom=$('detFrom').value;state.detTo=$('detTo').value;state.detSearch=$('detSearch').value;state.detPage=0;render();};
+  $('applyDetSearch').addEventListener('click',applySearch);
+  ['detTrain','detSearch','detFrom','detTo'].forEach(id=>$(id).addEventListener('keydown',event=>{if(event.key==='Enter')applySearch();}));
+  el.querySelectorAll('[data-det-station]').forEach(button=>button.addEventListener('click',()=>{state.detStation=button.getAttribute('data-det-station');state.detSection='';state.cause=null;state.detSearch='';state.detPage=0;render();}));
+  $('detSection').addEventListener('change',()=>{state.detStation='';state.detSection=$('detSection').value;state.detPage=0;render();});
+  $('resetDet').addEventListener('click',()=>{state.detTrain='';state.detFrom='';state.detTo='';state.detStation='';state.detSearch='';state.detSection='';state.cause=null;state.detPage=0;render();});
   $('detPrev').addEventListener('click',()=>{state.detPage=page-1;render();});
   $('detNext').addEventListener('click',()=>{state.detPage=page+1;render();});
 }
