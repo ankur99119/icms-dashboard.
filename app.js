@@ -54,8 +54,10 @@ function windowFor() {
 
 /* --- sign in --------------------------------------------------------- */
 let tokenClient = null;
+let authPolls = 0;
 
 function initAuth() {
+  $('signin').disabled = true;
   if (!CFG.CLIENT_ID) {
     $('boot').innerHTML = 'config.js has no CLIENT_ID. Create an OAuth client ID ' +
       '(Web application) in Google Cloud Console, add this site’s origin as an ' +
@@ -64,11 +66,23 @@ function initAuth() {
     return;
   }
   if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    if (++authPolls >= 60) {
+      fail('Google sign-in could not load. Check your internet connection or content blocker, then reload. If using an in-app browser, open this dashboard in Chrome or Safari.');
+      return;
+    }
     setTimeout(initAuth, 250);
     return;
   }
+  authPolls = 0;
+  try {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CFG.CLIENT_ID, scope: SCOPE,
+    error_callback: (error) => {
+      $('signin').disabled = false;
+      fail(error.type === 'popup_closed'
+        ? 'Sign-in window closed. Click Sign in with Google to try again.'
+        : 'Google could not open its sign-in window. Allow pop-ups for this dashboard, or open it in Chrome or Safari and try again.');
+    },
     callback: (response) => {
       if (response.error) { fail('Sign-in failed: ' + response.error); return; }
       state.token = response.access_token;
@@ -77,11 +91,27 @@ function initAuth() {
       load();
     }
   });
+  } catch (error) {
+    fail('Google sign-in could not initialize. Reload this page or open it in Chrome or Safari.');
+    return;
+  }
   $('signin').disabled = false;
 }
 
+function beginSignIn() {
+  if (!tokenClient) {
+    fail('Google sign-in is not ready. Reload this page; if it still does not load, check your connection or open the dashboard in Chrome or Safari.');
+    return;
+  }
+  fail(null);
+  try { tokenClient.requestAccessToken(); }
+  catch (error) { fail('Google sign-in could not open. Allow pop-ups for this dashboard and try again in Chrome or Safari.'); }
+}
+
 function signOut() {
-  if (state.token && google.accounts.oauth2) google.accounts.oauth2.revoke(state.token, () => {});
+  if (state.token && window.google?.accounts?.oauth2) {
+    try { window.google.accounts.oauth2.revoke(state.token, () => {}); } catch (error) { /* Always clear local private rows. */ }
+  }
   state.token = null; state.tabs = {}; state.present = [];
   $('signout').classList.add('hide');
   $('signin').classList.remove('hide');
@@ -1119,7 +1149,7 @@ $('from').addEventListener('change', (e) => { state.from = e.target.value; rende
 $('to').addEventListener('change', (e) => { state.to = e.target.value; render(); });
 $('completeOnly').addEventListener('change', (e) => { state.completeOnly = e.target.checked; render(); });
 $('reload').addEventListener('click', () => { if (state.token) load(); });
-$('signin').addEventListener('click', () => tokenClient && tokenClient.requestAccessToken());
+$('signin').addEventListener('click', beginSignIn);
 $('signout').addEventListener('click', signOut);
 
 $('window').textContent = '';
