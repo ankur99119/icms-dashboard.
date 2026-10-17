@@ -3,20 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ICMS — Delhi Division</title>
+<title>Delhi Division Coaching Intelligence</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<div class="ic-bar">
-  <span class="w">ICMS</span>
-  <span class="c">DELHI DIVISION COACHING INTELLIGENCE <small>Source-backed operational view</small></span>
-</div>
-
-<div class="ic-sub">
-  <span id="scope">—</span>
-  <span id="asOf">—</span>
-</div>
+<div class="shared-shell">
+<aside class="shared-sidebar"><div class="shared-brand"><span>DLI</span><div>Coaching<br>Intelligence<small>Delhi Division</small></div></div>
+<nav class="ic-tabs" id="tabs" aria-label="Main navigation">
+  <button data-v="overview" aria-selected="true">Overview<small>Division at a glance</small></button>
+  <button data-v="punct" aria-selected="false">Punctuality<small>Timings &amp; performance</small></button>
+  <button data-v="detention" aria-selected="false">Detention<small>Trains, places &amp; reasons</small></button>
+</nav><div class="shared-sidebar-note">Northern Railway<br>Private data · Google sign-in</div></aside>
+<div class="shared-workspace"><header class="shared-header"><div><p>DELHI DIVISION · NORTHERN RAILWAY</p><h1>Coaching Intelligence</h1><span id="scope">—</span></div><span id="asOf">—</span></header>
 
 <div class="ic-filter">
   <span><b>Period</b>
@@ -44,13 +43,6 @@
   </span>
 </div>
 
-<div class="ic-tabs" id="tabs">
-  <button data-v="overview"  aria-selected="true">Overview</button>
-  <button data-v="punct"     aria-selected="false">Punctuality</button>
-  <button data-v="detention" aria-selected="false">Detention</button>
-  <button data-v="coverage" aria-selected="false">Collection register</button>
-</div>
-
 <main>
   <p class="boot">Coverage checks flag unusual volumes or low reporting; they do not certify a complete day. Today’s results are provisional.</p>
   <div id="msg" class="hide"></div>
@@ -58,8 +50,9 @@
   <section id="v-overview"  class="hide"></section>
   <section id="v-punct"     class="hide"></section>
   <section id="v-detention" class="hide"></section>
-  <section id="v-coverage" class="hide"></section>
 </main>
+<footer class="shared-footer">Shared committed ICMS feeds only · private Sheet access is required · missing records are not zero</footer>
+</div></div>
 
 <div id="tip" class="tip hide"></div>
 
