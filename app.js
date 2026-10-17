@@ -86,16 +86,19 @@ function signOut() {
   $('signout').classList.add('hide');
   $('signin').classList.remove('hide');
   $('who').textContent = '';
-  ['overview', 'punct', 'detention', 'coverage'].forEach((v) => $('v-' + v).classList.add('hide'));
+  ['overview', 'punct', 'detention'].forEach((v) => { $('v-' + v).classList.add('hide'); $('v-' + v).innerHTML=''; });
   $('boot').classList.remove('hide');
   $('boot').textContent = 'Signed out.';
 }
 
 /* --- reading the Sheet ---------------------------------------------- */
 async function api(path) {
+  const requestToken=state.token;
+  if(!requestToken)throw new Error('SIGNED_OUT');
   const response = await fetch(API + encodeURIComponent(CFG.SPREADSHEET_ID) + path, {
-    headers: { Authorization: 'Bearer ' + state.token }
+    headers: { Authorization: 'Bearer ' + requestToken }
   });
+  if(state.token!==requestToken)throw new Error('STALE_SESSION');
   if (response.status === 401) { state.token = null; throw new Error('SIGNED_OUT'); }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -119,6 +122,7 @@ async function publicationState() {
 async function load() {
   if (loading || !state.token) return;
   loading = true;
+  const readingToken=state.token;
   fail(null);
   $('boot').classList.remove('hide');
   $('boot').textContent = 'Reading the divisional sheet…';
@@ -138,12 +142,14 @@ async function load() {
     const tabs = {};
     (got.valueRanges || []).forEach((range, i) => { tabs[wanted[i]] = table(range.values || []); });
     if (await publicationState() !== generation) throw new Error('Data changed while being read. Reload to obtain one consistent publication.');
+    if(state.token!==readingToken)return;
     state.tabs = tabs;
     $('boot').classList.add('hide');
     stamp();
     render();
   } catch (error) {
-    if (error.message === 'SIGNED_OUT') { signOut(); fail('Session expired. Sign in again.'); return; }
+    if (error.message === 'SIGNED_OUT') { if(state.token===null){signOut();fail('Session expired. Sign in again.');} return; }
+    if(state.token!==readingToken)return;
     $('boot').classList.add('hide');
     fail(error.message);
   } finally {
@@ -489,7 +495,8 @@ function renderOverview(bounds) {
   const complete = completeDates(bounds);
 
   const reported = sum(used, 'reported'), right = sum(used, 'right_time');
-  const minutes = sum(det, 'minutes'), events = sum(det, 'events');
+  const events = sum(det, 'events');
+  const detentionRows=(state.tabs.detention_events || []).filter(r=>r.detention_date>=bounds.start && r.detention_date<=bounds.end);
 
   const tiles = [
     tile('Originating RT %', reported ? num(pct(right, reported), 1) + '%' : '—',
@@ -497,11 +504,11 @@ function renderOverview(bounds) {
     tile('Days counted', num(used.length),
          all.length - used.length ? num(all.length - used.length) + ' coverage-check days excluded' : 'all captured days included; coverage provisional',
          all.length !== used.length),
-    tile('Departures eligible', num(sum(used, 'eligible')), num(sum(used, 'not_reported')) + ' not reported'),
-    tile('Trains over 60 min late', num(sum(used, 'late_over_60')),
-         'of ' + num(sum(used, 'late')) + ' late'),
-    tile('Detention minutes', minutes ? num(minutes) : '—',
-         events ? num(events) + ' events' : 'no detention captured'),
+    tile('Departures eligible', used.length ? num(sum(used, 'eligible')) : '—', used.length ? num(sum(used, 'not_reported')) + ' not reported' : 'No qualifying captured dates'),
+    tile('Trains over 60 min late', used.length ? num(sum(used, 'late_over_60')) : '—',
+         used.length ? 'of ' + num(sum(used, 'late')) + ' late' : 'No qualifying captured dates'),
+    tile('Trains with detention records', detentionRows.length ? num(new Set(detentionRows.map(r=>r.train)).size) : '—',
+         detentionRows.length ? num(detentionRows.length)+' recorded cases' : 'Train-level records unavailable; not zero'),
     tile('Report 16 requested dates held', num(captureCoverage('PAM-16', bounds).dates.size),
          'Requested report windows; not event-date completeness',
          !captureCoverage('PAM-16', bounds).dates.size)
@@ -516,7 +523,7 @@ function renderOverview(bounds) {
          (r.complete === 'yes' ? '' : '<br>coverage check flagged (volume ratio ' + num(r.coverage_ratio, 2) + ')')
   })), bounds);
 
-  const causes = rollCauses(det);
+  const causes = rollCauses(det).sort((a,b)=>b.events-a.events || a.key.localeCompare(b.key));
   el.innerHTML =
     `<div class="tiles">${tiles}</div>` +
     `<div class="g2a">` +
@@ -524,13 +531,11 @@ function renderOverview(bounds) {
         (points.length ? place((W) => lineChart(W, points, { suffix: '%', dp: 1, max: 100 }), 190)
                        : '<div class="boot">No punctuality captured for this window.</div>') +
       `</fieldset>` +
-      `<fieldset><legend>Detention minutes by cause — Report 16</legend>` +
+      `<fieldset><legend>Detention cases by reason — Report 16</legend>` +
         (causes.length ? place((W) => barsH(W, causes.slice(0, 8).map((c, i) => ({
-            label: c.key, value: c.minutes, colour: ink(i < MAX_SERIES ? SERIES[i] : OTHER),
-            tip: '<b>' + c.key + '</b><br>' + num(c.minutes) + ' min<br>' + num(c.events) +
-                 ' events<br>' + num(c.minutes / c.events, 1) + ' min average'
-          })), { cumulative: true, unit: ' min',
-                 total: causes.reduce((t, c) => t + c.minutes, 0) }), 190)
+            label: c.key, value: c.events, colour: ink('--seq-450'),
+            tip: '<b>' + c.key + '</b><br>' + num(c.events) + ' recorded cases'
+          })), { unit: ' cases' }), 190)
           : '<div class="boot">No detention events captured for this window.</div>') +
       `</fieldset>` +
     `</div>` +
@@ -586,11 +591,11 @@ function renderPunct(bounds) {
   const tiles = [
     tile('Originating RT %', reported ? num(pct(right, reported), 1) + '%' : '—',
          'ICMS basis: right time / reported'),
-    tile('Scheduled', num(sum(used, 'scheduled')), num(sum(used, 'exceptions')) + ' exceptions'),
-    tile('Eligible', num(sum(used, 'eligible')), num(sum(used, 'reported')) + ' reported'),
-    tile('Late', num(sum(used, 'late')),
-         num(pct(sum(used, 'late'), reported), 1) + '% of reported'),
-    tile('Not reported', num(sum(used, 'not_reported')), 'not counted as late'),
+    tile('Scheduled', used.length ? num(sum(used, 'scheduled')) : '—', used.length ? num(sum(used, 'exceptions')) + ' exceptions' : 'No qualifying captured dates'),
+    tile('Eligible', used.length ? num(sum(used, 'eligible')) : '—', used.length ? num(sum(used, 'reported')) + ' reported' : 'No qualifying captured dates'),
+    tile('Late', used.length ? num(sum(used, 'late')) : '—',
+         used.length ? num(pct(sum(used, 'late'), reported), 1) + '% of reported' : 'No qualifying captured dates'),
+    tile('Not reported', used.length ? num(sum(used, 'not_reported')) : '—', 'not counted as late'),
     tile('Days counted', num(used.length) + ' of ' + num(all.length),
          state.completeOnly ? 'coverage-check failures excluded' : 'all captured days included',
          all.length !== used.length)
@@ -791,6 +796,11 @@ function detentionSearchRows(source,bounds,filters={}) {
 }
 function detentionSectionLabel(value) {
   return value==='Remaining DLI network'?'ICMS route-wide / other locations':value;
+}
+function viewerCsvCell(value) {
+  let text=String(value??'');
+  if(/^[=+@-]/.test(text.trimStart())||/^[\t\r\n]/.test(text))text="'"+text;
+  return '"'+text.replaceAll('"','""')+'"';
 }
 function renderDetention(bounds) {
   const el = $('v-detention');
@@ -1064,12 +1074,20 @@ function bindMarks(root) {
   });
 }
 
+function renderReportSection(view) {
+  const register=window.ICMS_REPORT_REGISTER || [];
+  const rows=view==='reports'?register:register.filter(r=>r.module===view);
+  const host=$('v-'+view);
+  host.innerHTML='<p>Implementation checklist. Shared = current shared feed; local pilot = not yet available in this shared module; research parser/pilot = not production-integrated. Planned and conditional sources are not collected by the current manual button.</p>'+
+    (view==='reports'?'<p>'+rows.length+' source configurations/candidates. Variants are separate contracts, not '+rows.length+' working collectors. Manual collection currently covers 19-O and 16-LT, with 301 when due.</p>':'<p>This module has no validated shared operational dataset yet. No results are estimated.</p>')+
+    grid(['Report / configuration','Purpose','Role','Implementation','Still required'],rows.map(r=>({cells:[r.code,r.name,r.role,r.stage,r.remaining].map(esc)})),{scroll:true});
+}
 function render() {
   const bounds = windowFor();
   if (!bounds) { fail('Choose valid dates, no future dates, and a range of at most 366 days.'); return; }
   fail(null);
   $('window').textContent = bounds.start + ' to ' + bounds.end;
-  ['overview', 'punct', 'detention', 'coverage'].forEach((v) => {
+  ['overview', 'punct', 'detention'].forEach((v) => {
     $('v-' + v).classList.toggle('hide', v !== state.view);
   });
   if (!Object.keys(state.tabs).length) return;
@@ -1077,7 +1095,6 @@ function render() {
   if (state.view === 'overview') renderOverview(bounds);
   if (state.view === 'punct') renderPunct(bounds);
   if (state.view === 'detention') renderDetention(bounds);
-  if (state.view === 'coverage') renderCoverage(bounds);
 }
 
 $('tabs').addEventListener('click', (e) => {
@@ -1109,3 +1126,54 @@ $('window').textContent = '';
 initAuth();
 // The collector must publish separately; this only reloads committed data.
 setInterval(() => { if (state.token && document.visibilityState === 'visible') load(); }, 5 * 60 * 1000);
+
+/* Division Desk navigation over existing authenticated shared feeds.
+   No localhost/research endpoint or new source schema is published here. */
+(() => {
+  if(typeof document.querySelector!=='function')return;
+  const selections={punct:'summary',detention:'summary'};
+  const entries={punct:[['summary','Summary'],['stations','Station-wise'],['trains','Train-wise'],['repeat','Repeated delays'],['daily','Daily trend'],['types','Train types']],
+    detention:[['summary','Summary'],['sections','Sections'],['accounts','Accounts & reasons'],['types','Train types'],['repeat','Repeat cases'],['trains','Train search']]};
+  const originalRender=render;
+  function repeatTable(bounds){
+    const result=detentionSearchRows(state.tabs.detention_events||[],bounds,{train:state.detTrain,start:state.detFrom,end:state.detTo,station:state.detStation,cause:state.cause,section:state.detSection,query:state.detSearch});
+    const grouped=new Map();result.rows.forEach(r=>{const n=detentionTrainNumber(r);if(!n)return;if(!grouped.has(n))grouped.set(n,[]);grouped.get(n).push(r);});
+    const rows=[...grouped].filter(([,r])=>new Set(r.map(x=>x.detention_date)).size>=3);
+    return '<fieldset class="shared-repeat"><legend>Repeatedly affected trains</legend><p>At least three different detention dates in the selected captured records. This is not a complete-divisional recurring-train census.</p>'+grid(['Train number','Affected dates','Recorded cases'],rows.map(([n,r])=>({cells:[esc(n),num(new Set(r.map(x=>x.detention_date)).size),num(r.length)]})))+(!rows.length?'<p>No captured train numbers meet this rule. Missing history can affect the result.</p>':'')+'</fieldset>';
+  }
+  render=function(){
+    originalRender();if(!Object.keys(state.tabs).length||state.view==='overview')return;
+    const host=$('v-'+state.view),kind=state.view,selection=selections[kind],bounds=windowFor();
+    const nav=document.createElement('div');nav.className='shared-subtabs';nav.setAttribute('role','tablist');nav.setAttribute('aria-label',kind==='punct'?'Punctuality information':'Detention information');
+    nav.innerHTML=entries[kind].map(([key,label])=>'<button type="button" data-shared-topic="'+key+'" role="tab" aria-selected="'+(selection===key)+'">'+esc(label)+'</button>').join('');
+    const tiles=host.querySelector('.tiles');if(tiles)tiles.after(nav);else host.prepend(nav);
+    const fields=[...host.querySelectorAll('fieldset')];
+    fields.forEach(field=>{
+      const title=(field.querySelector('legend')?.textContent||'');let show=false;
+      if(kind==='punct')show=selection==='summary'?title.startsWith('Originating RT')||title.startsWith('How late'):selection==='stations'?title.startsWith('By station'):selection==='daily'?title.startsWith('Originating RT')||title==='Day by day':false;
+      else show=selection==='summary'?title.startsWith('Trains detained by reason')||title==='Section-wise detention':selection==='sections'?title==='Section-wise detention':selection==='accounts'?title==='Reason-wise detention details':selection==='types'?title==='Train category-wise detention':selection==='trains'?title==='Train-wise detention details':false;
+      field.classList.toggle('hide',!show);
+    });
+    host.querySelectorAll('.g2,.g2a').forEach(group=>{const count=[...group.children].filter(c=>!c.classList.contains('hide')).length;group.classList.toggle('hide',!count);if(count===1)group.style.gridTemplateColumns='1fr';});
+    if(kind==='punct'&&['trains','repeat','types'].includes(selection)){
+      const note=document.createElement('p');note.className='shared-gap';note.textContent='This shared publication currently contains native originating summaries, not the checked private train-event or category feeds available on the collecting computer. No train history, repeat-delay denominator or category split is inferred here.';nav.after(note);
+    }
+    if(kind==='detention'&&selection==='accounts'){
+      const note=document.createElement('p');note.className='shared-gap';note.textContent='Shared reason descriptions are available. Independent Report 67 department summaries remain local review data and are not published here; reason codes do not prove individual departmental responsibility.';nav.after(note);
+    }
+    if(kind==='detention'&&selection==='repeat')nav.insertAdjacentHTML('afterend',repeatTable(bounds));
+    if(kind==='detention'&&selection==='trains'){
+      const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Download matching detention records';
+      button.addEventListener('click',()=>{
+        const result=detentionSearchRows(state.tabs.detention_events||[],bounds,{train:state.detTrain,start:state.detFrom,end:state.detTo,station:state.detStation,cause:state.cause,section:state.detSection,query:state.detSearch});
+        if(result.error){fail(result.error);return;}
+        const fields=['train','detention_date','broad_section','section','from_station','to_station','type','cause','sub_code','remarks','population_basis'];
+        const values=result.rows.map(r=>({...r,broad_section:detentionSectionLabel(broadDetentionSection(r)),population_basis:'Committed captured 16-LT source records, not complete divisional census'}));
+        const csv=[fields,...values.map(r=>fields.map(k=>r[k]))].map(row=>row.map(viewerCsvCell).join(',')).join('\r\n');
+        const url=URL.createObjectURL(new Blob(['\ufeff',csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='DLI_shared_filtered_detention.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      });host.append(button);
+    }
+    nav.querySelectorAll('[data-shared-topic]').forEach(button=>button.addEventListener('click',()=>{selections[kind]=button.dataset.sharedTopic;render();}));
+    requestAnimationFrame(()=>{drawPlaced();bindMarks(host);});
+  };
+})();
